@@ -5,40 +5,62 @@ Some sweet sandbox code
 @author Jon Crain
  */
 public class App {
+    private static int arraySize = 10;
+
     public static void main(String[] args) {
         App app = new App();
 
         app.quicksort();
 
         app.mergesort();
+
+        app.heapsort();
     }
 
     private void quicksort() {
-        System.out.println("Quicksorting");
+        System.out.printf("Quicksorting %d numbers \n", arraySize);
 
-        int[] array = ArrayHelper.generateRandomArray(20, 10);
+        int[] array = ArrayHelper.generateRandomArray(arraySize, arraySize);
 
-        ArrayHelper.print(array);
+        long startTime = System.nanoTime();
 
         Quicksort.sort(array);
 
-        ArrayHelper.print(array);
+        long duration = System.nanoTime() - startTime;
 
-        System.out.println("Done quicksorting");
+        System.out.printf("Finished in %s nanoseconds \n", duration);
     }
 
     private void mergesort() {
-        System.out.println("Mergesorting");
+        System.out.printf("Mergesorting %d numbers \n", arraySize);
 
-        int[] array = ArrayHelper.generateRandomArray(20, 10);
+        int[] array = ArrayHelper.generateRandomArray(arraySize, arraySize);
 
-        ArrayHelper.print(array);
+        long startTime = System.nanoTime();
 
         array = Mergesort.sort(array);
 
+        long duration = System.nanoTime() - startTime;
+
+        System.out.printf("Finished in %s nanoseconds \n", duration);
+    }
+
+    private void heapsort() {
+        System.out.printf("Heapsorting %d numbers \n", arraySize);
+
+        int[] array = ArrayHelper.generateRandomArray(arraySize, arraySize);
+
         ArrayHelper.print(array);
 
-        System.out.println("Done mergesorting");
+        long startTime = System.nanoTime();
+
+        Heapsort.sort(array);
+
+        long duration = System.nanoTime() - startTime;
+
+        ArrayHelper.print(array);
+
+        System.out.printf("Finished in %s nanoseconds \n", duration);
     }
 
 }
