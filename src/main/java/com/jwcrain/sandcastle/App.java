@@ -5,10 +5,18 @@ Some sweet sandbox code
 @author Jon Crain
  */
 public class App {
-    public void quicksort() {
+    public static void main(String[] args) {
+        App app = new App();
+
+        app.quicksort();
+
+        app.mergesort();
+    }
+
+    private void quicksort() {
         System.out.println("Quicksorting");
 
-        int[] array = {6, 5, 3, 2, 4, 1};
+        int[] array = ArrayHelper.generateRandomArray(20, 10);
 
         ArrayHelper.print(array);
 
@@ -19,9 +27,18 @@ public class App {
         System.out.println("Done quicksorting");
     }
 
-    public static void main(String[] args) {
-        App app = new App();
+    private void mergesort() {
+        System.out.println("Mergesorting");
 
-        app.quicksort();
+        int[] array = ArrayHelper.generateRandomArray(20, 10);
+
+        ArrayHelper.print(array);
+
+        array = Mergesort.sort(array);
+
+        ArrayHelper.print(array);
+
+        System.out.println("Done mergesorting");
     }
+
 }
