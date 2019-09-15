@@ -3,6 +3,8 @@ package com.jwcrain.sandcastle;
 import com.jwcrain.sandcastle.crainhashmap.Map;
 import org.junit.Test;
 
+import java.math.BigInteger;
+
 import static org.junit.Assert.*;
 
 public class AppTest {
@@ -56,6 +58,21 @@ public class AppTest {
 
         assertNotNull(map.get("test1"));
         assertTrue(map.get("test3").equals("crain"));
+    }
+
+//    @Test
+//    public void testKnapsack() {
+//        int[] weights = {4, 2, 3, 9, 7};
+//        int[] values = {10, 100, 20, 1000, 50};
+//        Knapsack knapsack = new Knapsack(5);
+//        int maxValue = knapsack.solve(weights, values, 11);
+//        System.out.println(maxValue);
+//    }
+
+    @Test
+    public void testFibonacci() {
+        BigInteger answer = Fibonacchi.calculate(100);
+        assertTrue(answer.equals(new BigInteger("158456325028528675187087900672")));
     }
 
 }
