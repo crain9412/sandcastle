@@ -7,6 +7,10 @@ Some sweet sandbox code
 public class App {
     private static int arraySize = 10;
 
+    public App() {
+
+    }
+
     public static void main(String[] args) {
         App app = new App();
 
