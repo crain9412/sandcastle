@@ -75,4 +75,11 @@ public class AppTest {
         assertTrue(answer.equals(new BigInteger("158456325028528675187087900672")));
     }
 
+    @Test
+    public void palindromeDetector() {
+        assertTrue(Palindrome.detect("tacocat"));
+        assertFalse(Palindrome.detect("tacocats"));
+        assertTrue(Palindrome.detect("tacoocat"));
+    }
+
 }
