@@ -1,9 +1,12 @@
 package com.jwcrain.sandcastle;
 
+import com.jwcrain.sandcastle.crainhamt.HashArrayMappedTrie;
 import com.jwcrain.sandcastle.crainhashmap.Map;
 import org.junit.Test;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.UUID;
 
 import static org.junit.Assert.*;
 
@@ -80,6 +83,27 @@ public class AppTest {
         assertTrue(Palindrome.detect("tacocat"));
         assertFalse(Palindrome.detect("tacocats"));
         assertTrue(Palindrome.detect("tacoocat"));
+    }
+
+    @Test
+    public void testHAMT() {
+        HashArrayMappedTrie<String, String> hamt = new HashArrayMappedTrie<>();
+        int valuesToPutAndGet = 32;
+        ArrayList<UUID> usedUUIDs = new ArrayList<>(valuesToPutAndGet);
+
+        for (int i = 0; i < valuesToPutAndGet; i++) {
+            UUID uuid = UUID.randomUUID();
+            usedUUIDs.add(uuid);
+            hamt.put(String.valueOf(i), "value" + i);
+        }
+
+        System.out.println(hamt.toString());
+
+//        for (int i = 0; i < valuesToPutAndGet; i++) {
+//            System.out.printf("Got %s, expected %s\n", hamt.get(usedUUIDs.get(i).toString()), "value" + i);
+//            assert(hamt.get(usedUUIDs.get(i).toString()) != null);
+//            assert(hamt.get(usedUUIDs.get(i).toString()).equals("value" + i));
+//        }
     }
 
 }
