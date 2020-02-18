@@ -1,9 +1,14 @@
 package com.jwcrain.sandcastle;
 
 import com.jwcrain.sandcastle.crainhashmap.Map;
+import com.jwcrain.sandcastle.hashring.HashRingImpl;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.UUID;
 
 import static org.junit.Assert.*;
 
@@ -82,4 +87,43 @@ public class AppTest {
         assertTrue(Palindrome.detect("tacoocat"));
     }
 
+    @Test
+    public void testHashRing() {
+        HashRingImpl<String> hashRing = new HashRingImpl<>();
+
+        /*
+        Attempting to add key 1 with hash -1810453357 at degree 28.249553
+        Attempting to add key 2 with hash 19522071 at degree 181.636321
+        Attempting to add key 3 with hash 264741300 at degree 202.190359
+        Attempting to add key beta with hash 2022730153 at degree 349.543283
+        Attempting to add key charlie with hash -481950697 at degree 139.603359
+        Attempting to add key entry1 with hash 1257347571 at degree 285.389656
+        Attempting to add key entry2 with hash 191393214 at degree 196.042394
+        Attempting to add key entry3 with hash -2119187441 at degree 2.371761
+         */
+
+        hashRing.put("1");
+        hashRing.put("2");
+        hashRing.put("3");
+        double highestDegree = hashRing.put("beta");
+        hashRing.put("charlie");
+        hashRing.put("entry1");
+        hashRing.put("entry2");
+        double lowestDegree = hashRing.put("entry3");
+
+        assertEquals("beta", hashRing.get("beta").orElse("NOT FOUND"));
+        assertEquals("entry3", hashRing.get("entry3").orElse("NOT FOUND"));
+        assertEquals("1", hashRing.clockwise(lowestDegree).orElse("NOT FOUND"));
+        assertEquals("entry3", hashRing.clockwise(highestDegree).orElse("NOT FOUND"));
+    }
+
+    @Test
+    public void testHashRingCollisionResolution() {
+        HashRingImpl<String> hashRing = new HashRingImpl<>();
+
+        for (int i = 0; i < 100000; i++) {
+            hashRing.put(Integer.toString(i));
+            assertEquals(hashRing.get(Integer.toString(i)).orElse("NOT FOUND"), Integer.toString(i));
+        }
+    }
 }
