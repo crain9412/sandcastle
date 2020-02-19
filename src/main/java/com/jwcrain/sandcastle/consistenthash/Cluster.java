@@ -9,7 +9,7 @@ import java.util.Optional;
 
 /*
     A consistent hashing simulator
-    TODO: generify?
+    We could generify this if we really wanted
  */
 public class Cluster {
     private HashRingImpl<String> serverHashRing = new HashRingImpl<>(); /* Store our servers */

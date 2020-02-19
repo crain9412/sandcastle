@@ -162,7 +162,7 @@ public class AppTest {
             cluster.addServer(Integer.toString(i));
         }
 
-        for (int i = 0; i < 100; i++) {
+        for (int i = 100001; i < 100100; i++) {
             cluster.put(Integer.toString(i), Integer.toString(i * 2));
             assertEquals(cluster.get(Integer.toString(i)).orElse("NOT FOUND"), Integer.toString(i * 2));
         }
@@ -171,7 +171,7 @@ public class AppTest {
             cluster.removeServer(Integer.toString(i));
         }
 
-        for (int i = 0; i < 100; i++) {
+        for (int i = 100100; i < 200000; i++) {
             cluster.put(Integer.toString(i), Integer.toString(i * 2));
             assertEquals(cluster.get(Integer.toString(i)).orElse("NOT FOUND"), Integer.toString(i * 2));
         }

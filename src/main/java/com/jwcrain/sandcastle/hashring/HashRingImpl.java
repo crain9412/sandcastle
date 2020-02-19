@@ -9,7 +9,13 @@ import java.util.TreeMap;
 
 /*
     An implementation of HashRing that resolves collisions with linear probing
-    TODO: Need to rethink abstraction because we have too many key/server specific details here
+    We use 2 HashMaps, to store key -> degree and degree -> key in both directions for constant time access
+    We use one TreeMap, to maintain an ordered list of degree -> key for efficient clockwise lookup
+    Time complexities:
+        O(log n) insert
+        O(log n) remove
+        O(1) clockwise
+        O(1) access
  */
 public class HashRingImpl<K> implements HashRing<K> {
     private static final int DEGREES_IN_A_CIRCLE = 360;
@@ -41,16 +47,6 @@ public class HashRingImpl<K> implements HashRing<K> {
         Map.Entry<Double, K> potentialMatch = degreeToKeyTree.ceilingEntry(nextPossibleDouble);
         if (potentialMatch == null) {
             potentialMatch = degreeToKeyTree.ceilingEntry(degree - DEGREES_IN_A_CIRCLE);
-        }
-        return Optional.ofNullable(potentialMatch.getValue());
-    }
-
-    @Override
-    public Optional<K> counterClockwise(double degree) {
-        double nextPossibleDouble = Math.nextDown(degree);
-        Map.Entry<Double, K> potentialMatch = degreeToKeyTree.floorEntry(nextPossibleDouble);
-        if (potentialMatch == null) {
-            potentialMatch = degreeToKeyTree.floorEntry(degree - DEGREES_IN_A_CIRCLE);
         }
         return Optional.ofNullable(potentialMatch.getValue());
     }
