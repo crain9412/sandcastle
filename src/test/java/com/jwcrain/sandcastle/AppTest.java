@@ -1,14 +1,12 @@
 package com.jwcrain.sandcastle;
 
+import com.jwcrain.sandcastle.consistenthash.Cluster;
 import com.jwcrain.sandcastle.crainhashmap.Map;
+import com.jwcrain.sandcastle.hashring.HashRing;
 import com.jwcrain.sandcastle.hashring.HashRingImpl;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.UUID;
 
 import static org.junit.Assert.*;
 
@@ -124,6 +122,58 @@ public class AppTest {
         for (int i = 0; i < 100000; i++) {
             hashRing.put(Integer.toString(i));
             assertEquals(hashRing.get(Integer.toString(i)).orElse("NOT FOUND"), Integer.toString(i));
+        }
+    }
+
+    @Test
+    public void testConsistentHashing() {
+        Cluster cluster = new Cluster("alpha");
+        cluster.put("hello", "world");
+        cluster.addServer("beta");
+        cluster.put("test", "something");
+        cluster.addServer("charlie");
+        cluster.put("another", "key");
+        cluster.addServer("delta");
+        cluster.addServer("epsilon");
+        cluster.removeServer("charlie");
+        cluster.put("yet", "another");
+
+        assertEquals("another", cluster.get("yet").orElse("NOT FOUND"));
+        assertEquals("world", cluster.get("hello").orElse("NOT FOUND"));
+        assertEquals("something", cluster.get("test").orElse("NOT FOUND"));
+        assertEquals("key", cluster.get("another").orElse("NOT FOUND"));
+        assertEquals("another", cluster.get("yet").orElse("NOT FOUND"));
+    }
+
+    @Test
+    public void testConsistentHashingCollisionResolution() {
+        Cluster cluster = new Cluster("alpha");
+
+        for (int i = 0; i < 100; i++) {
+            cluster.addServer(Integer.toString(i));
+        }
+
+        for (int i = 0; i < 100000; i++) {
+            cluster.put(Integer.toString(i), Integer.toString(i * 2));
+            assertEquals(cluster.get(Integer.toString(i)).orElse("NOT FOUND"), Integer.toString(i * 2));
+        }
+
+        for (int i = 100; i < 110; i++) {
+            cluster.addServer(Integer.toString(i));
+        }
+
+        for (int i = 0; i < 100; i++) {
+            cluster.put(Integer.toString(i), Integer.toString(i * 2));
+            assertEquals(cluster.get(Integer.toString(i)).orElse("NOT FOUND"), Integer.toString(i * 2));
+        }
+
+        for (int i = 0; i < 10; i++) {
+            cluster.removeServer(Integer.toString(i));
+        }
+
+        for (int i = 0; i < 100; i++) {
+            cluster.put(Integer.toString(i), Integer.toString(i * 2));
+            assertEquals(cluster.get(Integer.toString(i)).orElse("NOT FOUND"), Integer.toString(i * 2));
         }
     }
 }

@@ -9,11 +9,13 @@ import java.util.TreeMap;
 
 /*
     An implementation of HashRing that resolves collisions with linear probing
+    TODO: Need to rethink abstraction because we have too many key/server specific details here
  */
 public class HashRingImpl<K> implements HashRing<K> {
     private static final int DEGREES_IN_A_CIRCLE = 360;
     private HashMap<Double, K> degreeToKeyMap = new HashMap<>();
     private TreeMap<Double, K> degreeToKeyTree = new TreeMap<>();
+    private HashMap<K, Double> keyToDegreeMap = new HashMap<>();
 
     @Override
     public double put(K key) {
@@ -26,18 +28,36 @@ public class HashRingImpl<K> implements HashRing<K> {
     }
 
     @Override
+    public void remove(K key) {
+        double degree = keyToDegreeMap.get(key);
+        keyToDegreeMap.remove(key);
+        degreeToKeyMap.remove(degree);
+        degreeToKeyTree.remove(degree);
+    }
+
+    @Override
     public Optional<K> clockwise(double degree) {
-        double nextPossibleDouble = Math.nextAfter(degree, Double.POSITIVE_INFINITY);
-        //System.out.printf("Attempting to find clockwise entry from degree %f15 with next possible double %f15\n", degree, nextPossibleDouble);
-        //System.out.printf("Potential matches: %s\n", degreeToKeyTree);
+        double nextPossibleDouble = Math.nextUp(degree);
         Map.Entry<Double, K> potentialMatch = degreeToKeyTree.ceilingEntry(nextPossibleDouble);
-        //System.out.printf("Found potential match %s\n", potentialMatch);
-        if (potentialMatch == null) {;
+        if (potentialMatch == null) {
             potentialMatch = degreeToKeyTree.ceilingEntry(degree - DEGREES_IN_A_CIRCLE);
-            //System.out.printf("Found potential match %s\n", potentialMatch);
         }
-        //System.out.printf("Returning potential match %s\n", potentialMatch);
         return Optional.ofNullable(potentialMatch.getValue());
+    }
+
+    @Override
+    public Optional<K> counterClockwise(double degree) {
+        double nextPossibleDouble = Math.nextDown(degree);
+        Map.Entry<Double, K> potentialMatch = degreeToKeyTree.floorEntry(nextPossibleDouble);
+        if (potentialMatch == null) {
+            potentialMatch = degreeToKeyTree.floorEntry(degree - DEGREES_IN_A_CIRCLE);
+        }
+        return Optional.ofNullable(potentialMatch.getValue());
+    }
+
+    @Override
+    public Optional<Double> getDegree(K key) {
+        return Optional.ofNullable(keyToDegreeMap.get(key));
     }
 
     private int hash(String s) {
@@ -48,23 +68,19 @@ public class HashRingImpl<K> implements HashRing<K> {
         double degree = getDegreeFromHash(hash);
         K potentialMatch = degreeToKeyMap.get(degree);
 
-        //System.out.printf("Attempting to add key %s with hash %d at degree %f\n", key.toString(), hash, degree);
-
         if (potentialMatch != null && !potentialMatch.equals(key)) {
-            //System.out.printf("Collision, %f already exists in our HashRing, new key: %s, existing key: %s, probing!\n", degree, key.toString(), potentialMatch.toString());
             putHelper(getNextPossibleHash(hash), key);
         }
 
         degreeToKeyMap.put(degree, key);
         degreeToKeyTree.put(degree, key);
+        keyToDegreeMap.put(key, degree);
         return degree;
     }
 
     private Optional<K> getHelper(int hash, K key) {
         double degree = getDegreeFromHash(hash);
         K potentialMatch = degreeToKeyMap.get(degree);
-
-        //System.out.printf("Attempting to get key %s with hash %d at degree %f\n", key.toString(), hash, degree);
 
         if (potentialMatch == null) {
             return Optional.empty();
@@ -74,7 +90,6 @@ public class HashRingImpl<K> implements HashRing<K> {
             return Optional.of(key);
         }
 
-        //System.out.printf("Collision, found existing key %s that doesn't match key %s, probing!\n", potentialMatch.toString(), key.toString());
         return getHelper(getNextPossibleHash(hash), key);
     }
 
