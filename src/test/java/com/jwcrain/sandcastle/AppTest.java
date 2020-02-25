@@ -4,6 +4,8 @@ import com.jwcrain.sandcastle.consistenthash.Cluster;
 import com.jwcrain.sandcastle.crainhashmap.Map;
 import com.jwcrain.sandcastle.hashring.HashRing;
 import com.jwcrain.sandcastle.hashring.HashRingImpl;
+import com.jwcrain.sandcastle.storage.StorageData;
+import com.jwcrain.sandcastle.storage.StorageImpl;
 import org.junit.Test;
 
 import java.math.BigInteger;
@@ -174,6 +176,16 @@ public class AppTest {
         for (int i = 100100; i < 200000; i++) {
             cluster.put(Integer.toString(i), Integer.toString(i * 2));
             assertEquals(cluster.get(Integer.toString(i)).orElse("NOT FOUND"), Integer.toString(i * 2));
+        }
+    }
+
+    @Test
+    public void storageTest() {
+        StorageImpl storage = new StorageImpl("/tmp/test");
+        byte[] bytes = new byte[]{0x48, 0x65, 0x6C, 0x6C, 0x6F};
+        StorageData storageData = storage.persist(bytes);
+        for (int i = 0; i < bytes.length; i++) {
+            assertEquals(bytes[i], storage.retrieve(storageData)[i]);
         }
     }
 }
