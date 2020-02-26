@@ -2,10 +2,8 @@ package com.jwcrain.sandcastle;
 
 import com.jwcrain.sandcastle.consistenthash.Cluster;
 import com.jwcrain.sandcastle.crainhashmap.Map;
-import com.jwcrain.sandcastle.hashring.HashRing;
 import com.jwcrain.sandcastle.hashring.HashRingImpl;
-import com.jwcrain.sandcastle.storage.StorageData;
-import com.jwcrain.sandcastle.storage.StorageImpl;
+import com.jwcrain.sandcastle.storage.StorageVariableImpl;
 import org.junit.Test;
 
 import java.math.BigInteger;
@@ -182,9 +180,9 @@ public class AppTest {
 
     @Test
     public void storageTest() {
-        StorageImpl storage = new StorageImpl("/tmp/test");
+        StorageVariableImpl storage = new StorageVariableImpl("/tmp/test");
         byte[] bytes = new byte[]{0x48, 0x65, 0x6C, 0x6C, 0x6F};
-        long offset = storage.persist(bytes);
+        long offset = storage.persistVariable(bytes);
         Random random = new Random();
         random.setSeed(31L); /* Make test repeatable */
 
@@ -202,7 +200,7 @@ public class AppTest {
                 randomBytes[j] = (byte) randomAlphanumericChar;
             }
 
-            long randomOffset = storage.persist(randomBytes);
+            long randomOffset = storage.persistVariable(randomBytes);
 
             byte[] retrievedBytes = storage.retrieve(randomOffset);
 
