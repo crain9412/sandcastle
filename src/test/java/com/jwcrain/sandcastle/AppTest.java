@@ -9,6 +9,7 @@ import com.jwcrain.sandcastle.storage.StorageImpl;
 import org.junit.Test;
 
 import java.math.BigInteger;
+import java.util.Random;
 
 import static org.junit.Assert.*;
 
@@ -183,9 +184,31 @@ public class AppTest {
     public void storageTest() {
         StorageImpl storage = new StorageImpl("/tmp/test");
         byte[] bytes = new byte[]{0x48, 0x65, 0x6C, 0x6C, 0x6F};
-        StorageData storageData = storage.persist(bytes);
+        long offset = storage.persist(bytes);
+        Random random = new Random();
+        random.setSeed(31L); /* Make test repeatable */
+
         for (int i = 0; i < bytes.length; i++) {
-            assertEquals(bytes[i], storage.retrieve(storageData)[i]);
+            assertEquals(bytes[i], storage.retrieve(offset)[i]);
+        }
+
+        /* Write about 400M of data */
+        for (int i = 0; i < 100; i++) {
+            int randomSize = random.nextInt(4000000) + 1; /* 4 MB */
+            byte[] randomBytes = new byte[randomSize];
+
+            for (int j = 0; j < randomBytes.length; j++) {
+                char randomAlphanumericChar = (char) (random.nextInt(26) + 97);
+                randomBytes[j] = (byte) randomAlphanumericChar;
+            }
+
+            long randomOffset = storage.persist(randomBytes);
+
+            byte[] retrievedBytes = storage.retrieve(randomOffset);
+
+            for (int j = 0; j < randomBytes.length; j++) {
+                assertEquals(randomBytes[j], retrievedBytes[j]);
+            }
         }
     }
 }
