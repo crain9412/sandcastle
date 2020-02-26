@@ -2,9 +2,8 @@ package com.jwcrain.sandcastle;
 
 import com.jwcrain.sandcastle.consistenthash.Cluster;
 import com.jwcrain.sandcastle.crainhashmap.Map;
-import com.jwcrain.sandcastle.hashring.HashRing;
+import com.jwcrain.sandcastle.crainlsmtree.LSMTreeImpl;
 import com.jwcrain.sandcastle.hashring.HashRingImpl;
-import com.jwcrain.sandcastle.storage.StorageData;
 import com.jwcrain.sandcastle.storage.StorageImpl;
 import org.junit.Test;
 
@@ -209,6 +208,18 @@ public class AppTest {
             for (int j = 0; j < randomBytes.length; j++) {
                 assertEquals(randomBytes[j], retrievedBytes[j]);
             }
+        }
+    }
+
+    @Test
+    public void lsmTest() {
+        LSMTreeImpl lsmTree = new LSMTreeImpl();
+        lsmTree.insert("Hello", "World");
+        lsmTree.insert("Test", "Entry");
+
+        for (int i = 0; i < 10000; i++) {
+            lsmTree.insert(Integer.toString(i), Integer.toString(i * 2));
+            assertEquals(Integer.toString(i * 2), lsmTree.get(Integer.toString(i)));
         }
     }
 }
