@@ -1,10 +1,10 @@
-package com.jwcrain.sandcastle.storage;
+package com.jwcrain.sandcastle.database.storage;
 
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
-public class StorageImpl {
+public class StorageImpl implements Storage {
     private static final int INT_SIZE_BYTES = Integer.SIZE / 8;
     private FileChannel fileChannel;
     private long offset = 0;
@@ -18,6 +18,7 @@ public class StorageImpl {
         }
     }
 
+    @Override
     public synchronized long persist(byte[] bytes) {
         try {
             int writeSize = bytes.length + INT_SIZE_BYTES;
@@ -34,6 +35,7 @@ public class StorageImpl {
         return 0L;
     }
 
+    @Override
     public byte[] retrieve(long offset) {
         try {
             ByteBuffer sizeBuffer = ByteBuffer.allocate(INT_SIZE_BYTES);

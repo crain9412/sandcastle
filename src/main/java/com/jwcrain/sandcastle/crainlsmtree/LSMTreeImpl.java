@@ -1,7 +1,7 @@
 package com.jwcrain.sandcastle.crainlsmtree;
 
 import com.jwcrain.sandcastle.appendonlylog.Log;
-import com.jwcrain.sandcastle.storage.StorageImpl;
+import com.jwcrain.sandcastle.database.storage.StorageImpl;
 
 import java.io.*;
 import java.util.ArrayList;

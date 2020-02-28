@@ -3,11 +3,17 @@ package com.jwcrain.sandcastle;
 import com.jwcrain.sandcastle.consistenthash.Cluster;
 import com.jwcrain.sandcastle.crainhashmap.Map;
 import com.jwcrain.sandcastle.crainlsmtree.LSMTreeImpl;
+import com.jwcrain.sandcastle.database.Database;
+import com.jwcrain.sandcastle.database.DatabaseImpl;
+import com.jwcrain.sandcastle.database.index.Index;
+import com.jwcrain.sandcastle.database.index.IndexImpl;
+import com.jwcrain.sandcastle.database.storage.Storage;
 import com.jwcrain.sandcastle.hashring.HashRingImpl;
-import com.jwcrain.sandcastle.storage.StorageImpl;
+import com.jwcrain.sandcastle.database.storage.StorageImpl;
 import org.junit.Test;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Random;
 
 import static org.junit.Assert.*;
@@ -191,8 +197,8 @@ public class AppTest {
             assertEquals(bytes[i], storage.retrieve(offset)[i]);
         }
 
-        /* Write about 400M of data */
-        for (int i = 0; i < 100; i++) {
+        /* Write about 40M of data */
+        for (int i = 0; i < 10; i++) {
             int randomSize = random.nextInt(4000000) + 1; /* 4 MB */
             byte[] randomBytes = new byte[randomSize];
 
@@ -221,5 +227,14 @@ public class AppTest {
             lsmTree.insert(Integer.toString(i), Integer.toString(i * 2));
             assertEquals(Integer.toString(i * 2), lsmTree.get(Integer.toString(i)));
         }
+    }
+
+    @Test
+    public void databaseTest() {
+        Storage storage = new StorageImpl("/tmp/db");
+        Index index = new IndexImpl();
+        Database database = new DatabaseImpl(index, storage);
+        database.put("Hello", "World");
+        assertEquals("World", database.get("Hello"));
     }
 }
