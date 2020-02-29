@@ -4,4 +4,5 @@ public interface Storage {
     long persist(byte[] bytes);
     byte[] retrieve(long offset);
     String getPath();
+    void reset();
 }

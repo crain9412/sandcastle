@@ -10,6 +10,8 @@ import com.jwcrain.sandcastle.database.index.IndexImpl;
 import com.jwcrain.sandcastle.database.storage.Storage;
 import com.jwcrain.sandcastle.hashring.HashRingImpl;
 import com.jwcrain.sandcastle.database.storage.StorageImpl;
+import org.apache.log4j.Level;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.math.BigInteger;
@@ -186,6 +188,7 @@ public class AppTest {
     }
 
     @Test
+    @Ignore
     public void storageTest() {
         StorageImpl storage = new StorageImpl("/tmp/test");
         byte[] bytes = new byte[]{0x48, 0x65, 0x6C, 0x6C, 0x6F};
@@ -233,12 +236,18 @@ public class AppTest {
     public void databaseTest() {
         Storage storage = new StorageImpl("/tmp/db");
         Index index = new IndexImpl();
-        Database database = new DatabaseImpl(index, storage);
+        Database database = new DatabaseImpl(index, storage, Level.TRACE);
         database.put("Hello", "World");
         assertEquals("World", database.get("Hello"));
         database.remove("Hello");
         assertEquals("", database.get("Hello"));
         database.put("Hello", "Jon");
         assertEquals("Jon", database.get("Hello"));
+
+        for (int i = 0; i < 10000; i++) {
+            String s = Integer.toString(i);
+            database.put("Hello", s);
+            assertEquals(s, database.get("Hello"));
+        }
     }
 }

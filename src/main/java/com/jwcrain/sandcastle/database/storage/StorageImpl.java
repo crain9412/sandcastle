@@ -1,21 +1,27 @@
 package com.jwcrain.sandcastle.database.storage;
 
+import org.apache.log4j.Logger;
+
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import com.jwcrain.sandcastle.database.error.Error;
 
 public class StorageImpl implements Storage {
     private static final int INT_SIZE_BYTES = Integer.SIZE / 8;
+    private Logger logger = Logger.getLogger(StorageImpl.class);
     private FileChannel fileChannel;
     private long offset = 0;
     private String path;
+    private RandomAccessFile randomAccessFile;
 
     public StorageImpl(String path) {
         try {
             RandomAccessFile randomAccessFile = new RandomAccessFile(path, "rw");
             fileChannel = randomAccessFile.getChannel();
+            this.randomAccessFile = randomAccessFile;
         } catch (Exception e) {
-            e.printStackTrace();
+            Error.handle("Error occurred while opening random access file", e);
         }
         this.path = path;
     }
@@ -32,7 +38,7 @@ public class StorageImpl implements Storage {
             offset += writeSize;
             return offset - writeSize;
         } catch (Exception e) {
-            e.printStackTrace();
+            Error.handle("Error occurred while persisting bytes", e);
         }
         return 0L;
     }
@@ -49,7 +55,7 @@ public class StorageImpl implements Storage {
             byteBuffer.flip();
             return byteBuffer.array();
         } catch (Exception e) {
-            e.printStackTrace();
+            Error.handle("Error occurred while retrieving offset", e);
         }
         return null;
     }
@@ -57,5 +63,17 @@ public class StorageImpl implements Storage {
     @Override
     public String getPath() {
         return path;
+    }
+
+    @Override
+    public void reset() {
+        /* TODO: handle crashes during reset */
+        logger.debug("Resetting log file");
+        try {
+            randomAccessFile.setLength(0L);
+        } catch (Exception e) {
+            Error.handle("Error occurred while setting file length", e);
+        }
+        this.offset = 0L;
     }
 }

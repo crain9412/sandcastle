@@ -11,4 +11,5 @@ public interface Index {
     boolean contains(String key);
     ArrayList<Long> range(String from, String to);
     Set<Map.Entry<String, Long>> entrySet();
+    void reset();
 }

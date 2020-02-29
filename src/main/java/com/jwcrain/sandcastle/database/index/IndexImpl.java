@@ -50,4 +50,10 @@ public class IndexImpl implements Index {
     public Set<Map.Entry<String, Long>> entrySet() {
         return treeMap.entrySet();
     }
+
+    @Override
+    public void reset() {
+        hashMap = new HashMap<>();
+        treeMap = new TreeMap<>();
+    }
 }
