@@ -236,5 +236,9 @@ public class AppTest {
         Database database = new DatabaseImpl(index, storage);
         database.put("Hello", "World");
         assertEquals("World", database.get("Hello"));
+        database.remove("Hello");
+        assertEquals("", database.get("Hello"));
+        database.put("Hello", "Jon");
+        assertEquals("Jon", database.get("Hello"));
     }
 }

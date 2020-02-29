@@ -8,6 +8,7 @@ public class StorageImpl implements Storage {
     private static final int INT_SIZE_BYTES = Integer.SIZE / 8;
     private FileChannel fileChannel;
     private long offset = 0;
+    private String path;
 
     public StorageImpl(String path) {
         try {
@@ -16,6 +17,7 @@ public class StorageImpl implements Storage {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        this.path = path;
     }
 
     @Override
@@ -50,5 +52,10 @@ public class StorageImpl implements Storage {
             e.printStackTrace();
         }
         return null;
+    }
+
+    @Override
+    public String getPath() {
+        return path;
     }
 }

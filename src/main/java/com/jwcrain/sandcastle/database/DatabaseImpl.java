@@ -4,19 +4,22 @@ import com.jwcrain.sandcastle.database.index.Index;
 import com.jwcrain.sandcastle.database.storage.Storage;
 import org.apache.commons.codec.digest.MurmurHash3;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Map;
 
 public class DatabaseImpl implements Database {
     private static final char DELIMITER = '=';
     private static final char END_OF_LINE = '\n';
+    private static final char EMPTY_VALUE = ' ';
     private Index index;
     private Storage storage;
 
     public DatabaseImpl(Index index, Storage storage) {
         this.index = index;
         this.storage = storage;
-        /* TODO: recreate from existing DB */
+        rebuild();
     }
 
     @Override
@@ -32,6 +35,11 @@ public class DatabaseImpl implements Database {
         byte[] bytes = storage.retrieve(offset);
         String diskValue = bytesToString(bytes);
         return bytesToString(bytes);
+    }
+
+    @Override
+    public void remove(String key) {
+        put(key, String.valueOf(EMPTY_VALUE));
     }
 
     @Override
@@ -60,12 +68,18 @@ public class DatabaseImpl implements Database {
         return values;
     }
 
-    private int extractHashFromDiskValue(String string) {
+    private int extractHash(String string) {
         String[] strings = string.split(String.valueOf(DELIMITER));
         return Integer.valueOf(strings[0]);
     }
 
-    private String extractValueFromDiskValue(String string) {
+    private String extractKey(String string) {
+        /* TODO: partial writes could end with corruption */
+        String[] strings = string.split(String.valueOf(DELIMITER));
+        return strings[1].trim();
+    }
+
+    private String extractValue(String string) {
         String[] strings = string.split(String.valueOf(DELIMITER));
         return strings[2].trim();
     }
@@ -83,6 +97,21 @@ public class DatabaseImpl implements Database {
             stringBuilder.append((char) bytes[i]);
         }
 
-        return extractValueFromDiskValue(stringBuilder.toString());
+        return extractValue(stringBuilder.toString());
+    }
+
+    private void rebuild() {
+        try {
+            BufferedReader bufferedReader = new BufferedReader(new FileReader(storage.getPath()));
+            while(bufferedReader.ready()) {
+                String line = bufferedReader.readLine();
+                /* TODO: verify hash */
+                String key = extractKey(line);
+                String value = extractValue(line);
+                put(key, value);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();;
+        }
     }
 }
