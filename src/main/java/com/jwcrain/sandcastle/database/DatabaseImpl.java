@@ -141,34 +141,6 @@ public class DatabaseImpl implements Database {
         return extractValue(stringBuilder.toString());
     }
 
-    private void rebuild() {
-        while (!lock.tryLock()) {
-            lock.tryLock();
-        }
-
-        logger.debug("Locked database to rebuild indexes");
-
-        try {
-            BufferedReader bufferedReader = new BufferedReader(new FileReader(storage.getPath()));
-
-            logger.debug("Reading log file");
-
-            while(bufferedReader.ready()) {
-                String line = bufferedReader.readLine();
-                /* TODO: verify hash */
-                String key = extractKey(line);
-                String value = extractValue(line);
-                putHelper(key, value, true);
-            }
-        } catch (Exception e) {
-            Error.handle("Error rebuilding indexes", e);
-        } finally {
-            lock.unlock();
-            logger.debug("Unlocked database to rebuild indexes");
-        }
-
-    }
-
     private void compact() {
         logger.trace("Index before compaction " + index.entrySet().toString());
 

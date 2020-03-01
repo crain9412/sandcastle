@@ -17,6 +17,8 @@ import org.junit.Test;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.junit.Assert.*;
 
@@ -236,18 +238,81 @@ public class AppTest {
     public void databaseTest() {
         Storage storage = new StorageImpl("/tmp/db");
         Index index = new IndexImpl();
-        Database database = new DatabaseImpl(index, storage, Level.TRACE);
-        database.put("Hello", "World");
-        assertEquals("World", database.get("Hello"));
-        database.remove("Hello");
-        assertEquals("", database.get("Hello"));
-        database.put("Hello", "Jon");
-        assertEquals("Jon", database.get("Hello"));
+        Database database = new DatabaseImpl(index, storage, Level.INFO);
+        long startNanos = System.nanoTime();
 
-        for (int i = 0; i < 10000; i++) {
-            String s = Integer.toString(i);
-            database.put("Hello", s);
-            assertEquals(s, database.get("Hello"));
-        }
+        ExecutorService executorService = Executors.newFixedThreadPool(4);
+
+        executorService.submit(() -> {
+            database.put("Hello", "World");
+            assertEquals("World", database.get("Hello"));
+            database.remove("Hello");
+            assertEquals("", database.get("Hello"));
+            database.put("Hello", "Jon");
+            assertEquals("Jon", database.get("Hello"));
+        });
+
+        executorService.submit(() -> {
+            for (int i = 0; i < 250000; i++) {
+                String s = Integer.toString(i);
+                database.put("Hello", s);
+                assertEquals(s, database.get("Hello"));
+            }
+        });
+
+        double secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000;
+
+        System.out.printf("Single Key Insert Count = 1,000,003;Seconds elapsed=%f;Inserts per second=%f\n", secondsElapsed, (1000003 / secondsElapsed));
+
+        startNanos = System.nanoTime();
+
+        executorService.submit(() -> {
+            for (int i = 0; i < 1000; i++) {
+                String key = Integer.toString(i);
+
+                for (int j = 0; j < 1000; j++) {
+                    String value = Integer.toString(j * 2);
+                    database.put(key, value);
+                    assertEquals(value, database.get(key));
+                }
+            }
+        });
+
+        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000;
+
+        System.out.printf("Thousand Key Insert Count = 1M; Seconds elapsed=%f;Inserts per second=%f\n", secondsElapsed, (1000000 / secondsElapsed));
+
+        executorService.submit(() -> {
+            assertEquals("Jon", database.get("Hello"));
+        });
+
+        startNanos = System.nanoTime();
+
+        executorService.submit(() -> {
+            for (int i = 0; i < 1000000; i++) {
+                String key = Integer.toString(i);
+
+                for (int j = 0; j < 1000; j++) {
+                    String value = Integer.toString(j * 2);
+                    database.put(key, value);
+                    assertEquals(value, database.get(key));
+                }
+            }
+        });
+
+        executorService.submit(() -> {
+            for (int i = 0; i < 1000000; i++) {
+                String key = Integer.toString(i);
+
+                for (int j = 0; j < 1000; j++) {
+                    String value = Integer.toString(j * 2);
+                    assertEquals(value, database.get(key));
+                }
+            }
+        });
+
+        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000;
+
+        System.out.printf("Million Key Insert Count = 1B; Seconds elapsed=%f;Inserts per second=%f\n", secondsElapsed, (1000000000 / secondsElapsed));
     }
 }

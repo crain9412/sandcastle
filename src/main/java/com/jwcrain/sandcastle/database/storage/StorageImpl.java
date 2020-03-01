@@ -68,7 +68,6 @@ public class StorageImpl implements Storage {
     @Override
     public void reset() {
         /* TODO: handle crashes during reset */
-        logger.debug("Resetting log file");
         try {
             randomAccessFile.setLength(0L);
         } catch (Exception e) {
