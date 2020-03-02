@@ -1,9 +1,9 @@
 package com.jwcrain.sandcastle.database;
 
+import com.jwcrain.sandcastle.database.compactionstrategy.CompactionStrategy;
 import com.jwcrain.sandcastle.database.error.Error;
 import com.jwcrain.sandcastle.database.index.Index;
 import com.jwcrain.sandcastle.database.storage.Storage;
-import com.jwcrain.sandcastle.database.storage.StorageImpl;
 import org.apache.commons.codec.digest.MurmurHash3;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -17,16 +17,18 @@ public class DatabaseImpl implements Database {
     private static final char DELIMITER = '=';
     private static final char END_OF_LINE = '\n';
     private static final char EMPTY_VALUE = ' ';
-    private static final float CHANCE_OF_COMPACTION = 0.00001f; /* TODO: allow customizable compaction strategies */
     private Index index;
     private Storage storage;
-    private Random random = new Random(123L); /* To be repeatable for tests, could allow users to pass in seed */
     private ReentrantLock lock = new ReentrantLock();
     private Logger logger = Logger.getLogger(DatabaseImpl.class);
+    private CompactionStrategy compactionStrategy;
+    private long insertCount = 0L;
 
-    public DatabaseImpl(Index index, Storage storage, Level logLevel) {
+
+    public DatabaseImpl(Index index, Storage storage, Level logLevel, CompactionStrategy compactionStrategy) {
         this.index = index;
         this.storage = storage;
+        this.compactionStrategy = compactionStrategy;
         logger.setLevel(logLevel);
         logger.info("Starting database");
         compact();
@@ -44,6 +46,8 @@ public class DatabaseImpl implements Database {
 
         logger.trace("Locked database for writing");
 
+        insertCount++;
+
         try {
             int hash = MurmurHash3.hash32x86((key + value).getBytes());
             long offset = storage.persist(getLogForKeyValue(hash, key, value));
@@ -55,7 +59,7 @@ public class DatabaseImpl implements Database {
         }
 
 
-        if (random.nextFloat() < CHANCE_OF_COMPACTION && !alreadyCompacted) {
+        if (compactionStrategy.shouldCompact(storage.getSize(), insertCount) && !alreadyCompacted) {
             compact();
         }
     }

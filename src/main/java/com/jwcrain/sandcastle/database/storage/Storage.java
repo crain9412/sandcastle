@@ -5,4 +5,5 @@ public interface Storage {
     byte[] retrieve(long offset);
     String getPath();
     void reset();
+    long getSize();
 }

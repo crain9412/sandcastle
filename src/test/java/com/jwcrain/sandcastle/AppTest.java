@@ -5,6 +5,7 @@ import com.jwcrain.sandcastle.crainhashmap.Map;
 import com.jwcrain.sandcastle.crainlsmtree.LSMTreeImpl;
 import com.jwcrain.sandcastle.database.Database;
 import com.jwcrain.sandcastle.database.DatabaseImpl;
+import com.jwcrain.sandcastle.database.compactionstrategy.RandomizedCompactionStrategy;
 import com.jwcrain.sandcastle.database.index.Index;
 import com.jwcrain.sandcastle.database.index.IndexImpl;
 import com.jwcrain.sandcastle.database.storage.Storage;
@@ -239,7 +240,7 @@ public class AppTest {
     public void databaseTest() {
         Storage storage = new StorageImpl("/tmp/db");
         Index index = new IndexImpl();
-        Database database = new DatabaseImpl(index, storage, Level.INFO);
+        Database database = new DatabaseImpl(index, storage, Level.INFO, new RandomizedCompactionStrategy());
 
         ExecutorService executorService = Executors.newFixedThreadPool(4);
 
@@ -261,7 +262,7 @@ public class AppTest {
     public void databaseLoadTest() {
         Storage storage = new StorageImpl("/tmp/db");
         Index index = new IndexImpl();
-        Database database = new DatabaseImpl(index, storage, Level.INFO);
+        Database database = new DatabaseImpl(index, storage, Level.INFO, new RandomizedCompactionStrategy());
         long startNanos = System.nanoTime();
 
         ExecutorService executorService = Executors.newFixedThreadPool(16); /* Set equal to log. proc. count */

@@ -2,6 +2,7 @@ package com.jwcrain.sandcastle.database.storage;
 
 import org.apache.log4j.Logger;
 
+import java.io.File;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -74,5 +75,16 @@ public class StorageImpl implements Storage {
             Error.handle("Error occurred while setting file length", e);
         }
         this.offset = 0L;
+    }
+
+    @Override
+    public long getSize() {
+        try {
+            File file = new File(path);
+            return file.length();
+        } catch (Exception e) {
+            Error.handle("Error occurred while getting file size", e);
+        }
+        return -1L;
     }
 }
