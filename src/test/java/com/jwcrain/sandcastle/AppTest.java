@@ -17,6 +17,7 @@ import org.junit.Test;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
@@ -351,6 +352,24 @@ public class AppTest {
 
         System.out.printf("Range Query Count = 1000; Seconds elapsed=%f; Reads per second=%f\n", secondsElapsed, (1000d / secondsElapsed));
 
+        startNanos = System.nanoTime();
+
+        future = executorService.submit(() -> {
+            Iterator<java.util.Map.Entry<String, Long>> iterator = database.iterator();
+
+            while (iterator.hasNext()) {
+                java.util.Map.Entry<String, Long> entry = iterator.next();
+                assertEquals("18", database.get(entry.getKey()).orElse(NOT_FOUND));
+            }
+
+            return true;
+        });
+
+        waitForFuture(future);
+
+        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
+
+        System.out.printf("Iterate Count = ~100k; Seconds elapsed=%f; Reads per second=%f\n", secondsElapsed, (100000d / secondsElapsed));
     }
 
     private void waitForFuture(Future<Boolean> future) {

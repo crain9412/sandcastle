@@ -119,16 +119,8 @@ public class DatabaseImpl implements Database {
     }
 
     @Override
-    public ArrayList<String> all() {
-        ArrayList<String> values = new ArrayList<>();
-
-        for (Map.Entry<String, Long> entry : index.entrySet()) {
-            long offset = entry.getValue();
-            Optional<byte[]> bytesOptional = storage.retrieve(offset);
-            bytesOptional.ifPresent(bytes -> values.add(bytesToString(bytes)));
-        }
-
-        return values;
+    public Iterator<Map.Entry<String, Long>> iterator() {
+        return index.entrySet().iterator();
     }
 
     private int extractHash(String string) {

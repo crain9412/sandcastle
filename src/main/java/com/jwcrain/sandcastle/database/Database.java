@@ -1,6 +1,8 @@
 package com.jwcrain.sandcastle.database;
 
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.Optional;
 
 public interface Database {
@@ -8,5 +10,5 @@ public interface Database {
     Optional<String> get(String key);
     void remove(String key);
     ArrayList<String> range(String from, String to);
-    ArrayList<String> all();
+    Iterator<Map.Entry<String, Long>> iterator();
 }
