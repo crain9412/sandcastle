@@ -335,12 +335,22 @@ public class AppTest {
 
         System.out.printf("Hundred Thousand Key Insert Count = 1M; Seconds elapsed=%f; Inserts per second=%f\n", secondsElapsed, (1000000d / secondsElapsed));
 
+        startNanos = System.nanoTime();
+
         future = executorService.submit(() -> {
-            assertEquals("Jon", database.get("Hello").orElse(NOT_FOUND));
+            ArrayList<String> rangeOfValues = database.range("10000", "11000");
+            for (String value : rangeOfValues) {
+                assertEquals("18", value);
+            }
             return true;
         });
 
         waitForFuture(future);
+
+        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
+
+        System.out.printf("Range Query Count = 1000; Seconds elapsed=%f; Reads per second=%f\n", secondsElapsed, (1000d / secondsElapsed));
+
     }
 
     private void waitForFuture(Future<Boolean> future) {

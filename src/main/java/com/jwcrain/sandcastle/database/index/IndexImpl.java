@@ -31,7 +31,7 @@ public class IndexImpl implements Index {
     @Override
     public ArrayList<Long> range(String from, String to) {
         ArrayList<Long> keys = new ArrayList<>();
-        Map.Entry<String, Long> currentEntry = treeMap.ceilingEntry(from);
+        Map.Entry<String, Long> currentEntry = treeMap.higherEntry(from);
 
         while (currentEntry != null) {
             String key = currentEntry.getKey();
@@ -40,7 +40,7 @@ public class IndexImpl implements Index {
                 break;
             }
             keys.add(currentEntry.getValue());
-            currentEntry = treeMap.ceilingEntry(key);
+            currentEntry = treeMap.higherEntry(key);
         }
 
         return keys;
