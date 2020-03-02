@@ -17,7 +17,7 @@ public class DatabaseImpl implements Database {
     private static final char DELIMITER = '=';
     private static final char END_OF_LINE = '\n';
     private static final char EMPTY_VALUE = ' ';
-    private static final float CHANCE_OF_COMPACTION = 0.001f; /* TODO: allow customizable compaction strategies */
+    private static final float CHANCE_OF_COMPACTION = 0.00001f; /* TODO: allow customizable compaction strategies */
     private Index index;
     private Storage storage;
     private Random random = new Random(123L); /* To be repeatable for tests, could allow users to pass in seed */

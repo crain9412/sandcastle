@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.junit.Assert.*;
 
@@ -239,34 +240,50 @@ public class AppTest {
         Storage storage = new StorageImpl("/tmp/db");
         Index index = new IndexImpl();
         Database database = new DatabaseImpl(index, storage, Level.INFO);
-        long startNanos = System.nanoTime();
 
         ExecutorService executorService = Executors.newFixedThreadPool(4);
 
-        executorService.submit(() -> {
+        Future<Boolean> future = executorService.submit(() -> {
             database.put("Hello", "World");
             assertEquals("World", database.get("Hello"));
             database.remove("Hello");
             assertEquals("", database.get("Hello"));
             database.put("Hello", "Jon");
             assertEquals("Jon", database.get("Hello"));
+            return true;
         });
 
-        executorService.submit(() -> {
+        waitForFuture(future);
+    }
+
+//    @Ignore
+    @Test
+    public void databaseLoadTest() {
+        Storage storage = new StorageImpl("/tmp/db");
+        Index index = new IndexImpl();
+        Database database = new DatabaseImpl(index, storage, Level.INFO);
+        long startNanos = System.nanoTime();
+
+        ExecutorService executorService = Executors.newFixedThreadPool(16); /* Set equal to log. proc. count */
+
+        Future<Boolean> future = executorService.submit(() -> {
             for (int i = 0; i < 250000; i++) {
                 String s = Integer.toString(i);
                 database.put("Hello", s);
                 assertEquals(s, database.get("Hello"));
             }
+            return true;
         });
 
-        double secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000;
+        waitForFuture(future);
+
+        double secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
 
         System.out.printf("Single Key Insert Count = 1,000,003;Seconds elapsed=%f;Inserts per second=%f\n", secondsElapsed, (1000003 / secondsElapsed));
 
         startNanos = System.nanoTime();
 
-        executorService.submit(() -> {
+        future = executorService.submit(() -> {
             for (int i = 0; i < 1000; i++) {
                 String key = Integer.toString(i);
 
@@ -276,43 +293,51 @@ public class AppTest {
                     assertEquals(value, database.get(key));
                 }
             }
+            return true;
         });
 
-        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000;
+        waitForFuture(future);
 
-        System.out.printf("Thousand Key Insert Count = 1M; Seconds elapsed=%f;Inserts per second=%f\n", secondsElapsed, (1000000 / secondsElapsed));
+        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
 
-        executorService.submit(() -> {
-            assertEquals("Jon", database.get("Hello"));
-        });
+        System.out.printf("Thousand Key Insert Count = 1M; Seconds elapsed=%f; Inserts per second=%f\n", secondsElapsed, (1000000 / secondsElapsed));
 
         startNanos = System.nanoTime();
 
-        executorService.submit(() -> {
-            for (int i = 0; i < 1000000; i++) {
+        future = executorService.submit(() -> {
+            for (int i = 0; i < 100000; i++) {
                 String key = Integer.toString(i);
 
-                for (int j = 0; j < 1000; j++) {
+                for (int j = 0; j < 10; j++) {
                     String value = Integer.toString(j * 2);
                     database.put(key, value);
                     assertEquals(value, database.get(key));
                 }
             }
+            return true;
         });
 
-        executorService.submit(() -> {
-            for (int i = 0; i < 1000000; i++) {
-                String key = Integer.toString(i);
+        waitForFuture(future);
 
-                for (int j = 0; j < 1000; j++) {
-                    String value = Integer.toString(j * 2);
-                    assertEquals(value, database.get(key));
-                }
+        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
+
+        System.out.printf("Hundred Thousand Key Insert Count = 1M; Seconds elapsed=%f; Inserts per second=%f\n", secondsElapsed, (1000000d / secondsElapsed));
+
+        future = executorService.submit(() -> {
+            assertEquals("Jon", database.get("Hello"));
+            return true;
+        });
+
+        waitForFuture(future);
+    }
+
+    private void waitForFuture(Future<Boolean> future) {
+        while(!future.isDone()) {
+            try {
+                Thread.sleep(100);
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-        });
-
-        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000;
-
-        System.out.printf("Million Key Insert Count = 1B; Seconds elapsed=%f;Inserts per second=%f\n", secondsElapsed, (1000000000 / secondsElapsed));
+        }
     }
 }
