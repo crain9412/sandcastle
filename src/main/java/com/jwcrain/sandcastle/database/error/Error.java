@@ -6,6 +6,7 @@ public interface Error {
     Logger logger = Logger.getLogger(Error.class);
 
     static void handle(String message, Exception e) {
-        logger.error(message, e);
+        String logString = message + e.getMessage();
+        logger.error(logString);
     }
 }

@@ -13,8 +13,8 @@ public class IndexImpl implements Index {
     }
 
     @Override
-    public long get(String key) {
-        return hashMap.get(key);
+    public Optional<Long> get(String key) {
+        return Optional.ofNullable(hashMap.get(key));
     }
 
     @Override

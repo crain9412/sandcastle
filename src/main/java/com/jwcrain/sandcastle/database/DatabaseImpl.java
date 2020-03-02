@@ -50,22 +50,27 @@ public class DatabaseImpl implements Database {
 
         try {
             int hash = MurmurHash3.hash32x86((key + value).getBytes());
-            long offset = storage.persist(getLogForKeyValue(hash, key, value));
-            index.put(key, offset);
-            logger.trace("Wrote " + key + "=" + value);
+            byte[] log = getLogForKeyValue(hash, key, value);
+            Optional<Long> offsetOptional = storage.persist(log);
+
+            if (offsetOptional.isPresent()) {
+                index.put(key, offsetOptional.get());
+                logger.trace("Wrote " + key + "=" + value);
+            } else {
+                logger.warn(String.format("Couldn't persist %s=%s=%s", hash, key, value));
+            }
         } finally {
             lock.unlock();
             logger.trace("Unlocked database for writing");
         }
 
-
-        if (compactionStrategy.shouldCompact(storage.getSize(), insertCount) && !alreadyCompacted) {
+        if (compactionStrategy.shouldCompact(insertCount) && !alreadyCompacted) {
             compact();
         }
     }
 
     @Override
-    public String get(String key) {
+    public Optional<String> get(String key) {
         while (!lock.tryLock()) {
             lock.tryLock();
         }
@@ -73,13 +78,26 @@ public class DatabaseImpl implements Database {
         logger.trace("Locked database for reading");
 
         try {
-            long offset = index.get(key);
-            byte[] bytes = storage.retrieve(offset);
-            return bytesToString(bytes);
+            Optional<Long> offset = index.get(key);
+
+            /* TODO: Don't like the pattern below */
+            if (offset.isPresent()) {
+                Optional<byte[]> bytesOptional = storage.retrieve(offset.get());
+
+                if (bytesOptional.isPresent()) {
+                    return Optional.of(bytesToString(bytesOptional.get()));
+                } else {
+                    logger.warn("Couldn't retrieve bytes at offset");
+                }
+            } else {
+                logger.warn(String.format("Couldn't find key %s in index", key)); /* TODO: make nicer */
+            }
         } finally {
             lock.unlock();
             logger.trace("Unlocked database for reading");
         }
+
+        return Optional.empty();
     }
 
     @Override
@@ -93,8 +111,8 @@ public class DatabaseImpl implements Database {
         ArrayList<String> values = new ArrayList<>();
 
         for (int i = 0; i < offsets.size(); i++) {
-            byte[] bytes = storage.retrieve(offsets.get(i));
-            values.add(bytesToString(bytes));
+            Optional<byte[]> bytesOptional = storage.retrieve(offsets.get(i));
+            bytesOptional.ifPresent(bytes -> values.add(bytesToString(bytes)));
         }
 
         return values;
@@ -106,8 +124,8 @@ public class DatabaseImpl implements Database {
 
         for (Map.Entry<String, Long> entry : index.entrySet()) {
             long offset = entry.getValue();
-            byte[] bytes = storage.retrieve(offset);
-            values.add(bytesToString(bytes));
+            Optional<byte[]> bytesOptional = storage.retrieve(offset);
+            bytesOptional.ifPresent(bytes -> values.add(bytesToString(bytes)));
         }
 
         return values;
@@ -167,7 +185,11 @@ public class DatabaseImpl implements Database {
                 arrayDeque.push(bufferedReader.readLine());
             }
 
-            storage.reset();
+            boolean reset = storage.reset();
+
+            if (!reset) {
+                throw new IllegalStateException("Couldn't reset storage");
+            }
 
             logger.debug("Compacting keys");
 

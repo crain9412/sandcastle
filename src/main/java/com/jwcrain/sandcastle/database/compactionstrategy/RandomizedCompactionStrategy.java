@@ -7,7 +7,7 @@ public class RandomizedCompactionStrategy implements CompactionStrategy {
     private Random random = new Random(123L); /* To be repeatable for tests, could allow users to pass in seed */
 
     @Override
-    public boolean shouldCompact(long fileSize, long insertCount) {
+    public boolean shouldCompact(long insertCount) {
         return random.nextFloat() < CHANCE_OF_COMPACTION;
     }
 }

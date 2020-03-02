@@ -17,6 +17,7 @@ import org.junit.Test;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,6 +26,8 @@ import java.util.concurrent.Future;
 import static org.junit.Assert.*;
 
 public class AppTest {
+    private static final String NOT_FOUND = "NOT_FOUND";
+
     @Test
     public void testQuicksort() {
         int[] array = {8, 4, 5, 2, 3, 8, 7, 1, 9};
@@ -196,12 +199,16 @@ public class AppTest {
     public void storageTest() {
         StorageImpl storage = new StorageImpl("/tmp/test");
         byte[] bytes = new byte[]{0x48, 0x65, 0x6C, 0x6C, 0x6F};
-        long offset = storage.persist(bytes);
+        Optional<Long> offsetOptional = storage.persist(bytes);
         Random random = new Random();
         random.setSeed(31L); /* Make test repeatable */
 
+        assertTrue(offsetOptional.isPresent());
+
         for (int i = 0; i < bytes.length; i++) {
-            assertEquals(bytes[i], storage.retrieve(offset)[i]);
+            Optional<byte[]> bytesOptional = storage.retrieve(offsetOptional.get());
+            assertTrue(bytesOptional.isPresent());
+            assertEquals(bytes[i], bytesOptional.get()[i]);
         }
 
         /* Write about 40M of data */
@@ -214,12 +221,16 @@ public class AppTest {
                 randomBytes[j] = (byte) randomAlphanumericChar;
             }
 
-            long randomOffset = storage.persist(randomBytes);
+            Optional<Long> randomOffsetOptional = storage.persist(randomBytes);
 
-            byte[] retrievedBytes = storage.retrieve(randomOffset);
+            assertTrue(randomOffsetOptional.isPresent());
+
+            Optional<byte[]> retrievedBytesOptional = storage.retrieve(randomOffsetOptional.get());
+
+            assertTrue(retrievedBytesOptional.isPresent());
 
             for (int j = 0; j < randomBytes.length; j++) {
-                assertEquals(randomBytes[j], retrievedBytes[j]);
+                assertEquals(randomBytes[j], retrievedBytesOptional.get()[j]);
             }
         }
     }
@@ -246,11 +257,11 @@ public class AppTest {
 
         Future<Boolean> future = executorService.submit(() -> {
             database.put("Hello", "World");
-            assertEquals("World", database.get("Hello"));
+            assertEquals("World", database.get("Hello").orElse(NOT_FOUND));
             database.remove("Hello");
-            assertEquals("", database.get("Hello"));
+            assertEquals("", database.get("Hello").orElse(NOT_FOUND));
             database.put("Hello", "Jon");
-            assertEquals("Jon", database.get("Hello"));
+            assertEquals("Jon", database.get("Hello").orElse(NOT_FOUND));
             return true;
         });
 
@@ -271,7 +282,7 @@ public class AppTest {
             for (int i = 0; i < 250000; i++) {
                 String s = Integer.toString(i);
                 database.put("Hello", s);
-                assertEquals(s, database.get("Hello"));
+                assertEquals(s, database.get("Hello").orElse(NOT_FOUND));
             }
             return true;
         });
@@ -291,7 +302,7 @@ public class AppTest {
                 for (int j = 0; j < 1000; j++) {
                     String value = Integer.toString(j * 2);
                     database.put(key, value);
-                    assertEquals(value, database.get(key));
+                    assertEquals(value, database.get(key).orElse(NOT_FOUND));
                 }
             }
             return true;
@@ -312,7 +323,7 @@ public class AppTest {
                 for (int j = 0; j < 10; j++) {
                     String value = Integer.toString(j * 2);
                     database.put(key, value);
-                    assertEquals(value, database.get(key));
+                    assertEquals(value, database.get(key).orElse(NOT_FOUND));
                 }
             }
             return true;
@@ -325,7 +336,7 @@ public class AppTest {
         System.out.printf("Hundred Thousand Key Insert Count = 1M; Seconds elapsed=%f; Inserts per second=%f\n", secondsElapsed, (1000000d / secondsElapsed));
 
         future = executorService.submit(() -> {
-            assertEquals("Jon", database.get("Hello"));
+            assertEquals("Jon", database.get("Hello").orElse(NOT_FOUND));
             return true;
         });
 

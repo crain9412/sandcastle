@@ -1,9 +1,10 @@
 package com.jwcrain.sandcastle.database.storage;
 
+import java.util.Optional;
+
 public interface Storage {
-    long persist(byte[] bytes);
-    byte[] retrieve(long offset);
+    Optional<Long> persist(byte[] bytes);
+    Optional<byte[]> retrieve(long offset);
     String getPath();
-    void reset();
-    long getSize();
+    boolean reset();
 }
