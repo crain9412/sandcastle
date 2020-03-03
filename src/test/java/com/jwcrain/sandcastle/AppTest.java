@@ -5,6 +5,7 @@ import com.jwcrain.sandcastle.crainhashmap.Map;
 import com.jwcrain.sandcastle.crainlsmtree.LSMTreeImpl;
 import com.jwcrain.sandcastle.database.Database;
 import com.jwcrain.sandcastle.database.DatabaseImpl;
+import com.jwcrain.sandcastle.database.compactionstrategy.NoOpCompactionStrategy;
 import com.jwcrain.sandcastle.database.compactionstrategy.RandomizedCompactionStrategy;
 import com.jwcrain.sandcastle.database.index.Index;
 import com.jwcrain.sandcastle.database.index.IndexImpl;
@@ -269,7 +270,7 @@ public class AppTest {
         waitForFuture(future);
     }
 
-//    @Ignore
+    @Ignore
     @Test
     public void databaseLoadTest() {
         Storage storage = new StorageImpl("/tmp/db");
@@ -370,6 +371,50 @@ public class AppTest {
         secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
 
         System.out.printf("Iterate Count = ~100k; Seconds elapsed=%f; Reads per second=%f\n", secondsElapsed, (100000d / secondsElapsed));
+    }
+
+    @Test
+    public void databaseCompactTimeTest() {
+        Storage storage = new StorageImpl("/tmp/db");
+        Index index = new IndexImpl();
+        Database database = new DatabaseImpl(index, storage, Level.INFO, new NoOpCompactionStrategy());
+        long startNanos = System.nanoTime();
+
+        ExecutorService executorService = Executors.newFixedThreadPool(16); /* Set equal to log. proc. count */
+
+        startNanos = System.nanoTime();
+
+        Future<Boolean> future = executorService.submit(() -> {
+            for (int i = 0; i < 100000; i++) {
+                String key = Integer.toString(i);
+
+                for (int j = 0; j < 10; j++) {
+                    String value = Integer.toString(j * 2);
+                    database.put(key, value);
+                    assertEquals(value, database.get(key).orElse(NOT_FOUND));
+                }
+            }
+            return true;
+        });
+
+        waitForFuture(future);
+
+        double secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
+
+        System.out.printf("Hundred Thousand Key Insert Count = 1M; Seconds elapsed=%f; Inserts per second=%f\n", secondsElapsed, (1000000d / secondsElapsed));
+
+        startNanos = System.nanoTime();
+
+        future = executorService.submit(() -> {
+            database.compact();
+            return true;
+        });
+
+        waitForFuture(future);
+
+        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
+
+        System.out.printf("Compaction time=%f\n", secondsElapsed);
     }
 
     private void waitForFuture(Future<Boolean> future) {

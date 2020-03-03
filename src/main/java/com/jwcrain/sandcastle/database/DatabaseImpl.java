@@ -155,7 +155,8 @@ public class DatabaseImpl implements Database {
         return extractValue(stringBuilder.toString());
     }
 
-    private void compact() {
+    @Override
+    public void compact() {
         logger.trace("Index before compaction " + index.entrySet().toString());
 
         while (!lock.tryLock()) {

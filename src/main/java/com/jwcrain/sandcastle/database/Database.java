@@ -11,4 +11,5 @@ public interface Database {
     void remove(String key);
     ArrayList<String> range(String from, String to);
     Iterator<Map.Entry<String, Long>> iterator();
+    void compact(); /* For testing, could also allow programmers to use a custom compaction strategy */
 }
