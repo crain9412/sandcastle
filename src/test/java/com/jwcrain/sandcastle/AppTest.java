@@ -1,5 +1,6 @@
 package com.jwcrain.sandcastle;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.jwcrain.sandcastle.consistenthash.Cluster;
 import com.jwcrain.sandcastle.crainhashmap.Map;
 import com.jwcrain.sandcastle.crainlsmtree.LSMTreeImpl;
@@ -21,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Optional;
 import java.util.Random;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -29,6 +31,9 @@ import static org.junit.Assert.*;
 
 public class AppTest {
     private static final String NOT_FOUND = "NOT_FOUND";
+    private static final double ONE_BILLION = 1000000000d;
+    private static final double ONE_MILLION = 1000000d;
+    private static final int READ_THREADS = 15; /* Set to logical processors - 1 (One for write thread) */
 
     @Test
     public void testQuicksort() {
@@ -253,21 +258,17 @@ public class AppTest {
     public void databaseTest() {
         Storage storage = new StorageImpl("/tmp/db");
         Index index = new IndexImpl();
-        Database database = new DatabaseImpl(index, storage, Level.INFO, new RandomizedCompactionStrategy());
+        Database database = new DatabaseImpl(
+                index,
+                storage,
+                Level.INFO,
+                new RandomizedCompactionStrategy(),
+                READ_THREADS
+        );
 
-        ExecutorService executorService = Executors.newFixedThreadPool(4);
-
-        Future<Boolean> future = executorService.submit(() -> {
-            database.put("Hello", "World");
-            assertEquals("World", database.get("Hello").orElse(NOT_FOUND));
-            database.remove("Hello");
-            assertEquals("", database.get("Hello").orElse(NOT_FOUND));
-            database.put("Hello", "Jon");
-            assertEquals("Jon", database.get("Hello").orElse(NOT_FOUND));
-            return true;
-        });
-
-        waitForFuture(future);
+        database.put("Hello", "World");
+        database.put("Removed", "Value");
+        database.remove("Removed");
     }
 
     @Ignore
@@ -275,155 +276,122 @@ public class AppTest {
     public void databaseLoadTest() {
         Storage storage = new StorageImpl("/tmp/db");
         Index index = new IndexImpl();
-        Database database = new DatabaseImpl(index, storage, Level.INFO, new RandomizedCompactionStrategy());
+        Database database = new DatabaseImpl(index, storage, Level.INFO, new RandomizedCompactionStrategy(), READ_THREADS);
         long startNanos = System.nanoTime();
+        for (int i = 0; i < 1000000; i++) {
+            String s = Integer.toString(i);
 
-        ExecutorService executorService = Executors.newFixedThreadPool(16); /* Set equal to log. proc. count */
+            database.put("Hello", s);
+        }
 
-        Future<Boolean> future = executorService.submit(() -> {
-            for (int i = 0; i < 250000; i++) {
-                String s = Integer.toString(i);
-                database.put("Hello", s);
-                assertEquals(s, database.get("Hello").orElse(NOT_FOUND));
-            }
-            return true;
-        });
+        long insertCount = database.getInsertId();
 
-        waitForFuture(future);
+        while(block(insertCount, Long.MIN_VALUE + 1000)){
+            insertCount = database.getInsertId();
+        }
 
-        double secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
+        double secondsElapsed = (double)(System.nanoTime() - startNanos) / ONE_BILLION;
 
-        System.out.printf("Single Key Insert Count = 1,000,003;Seconds elapsed=%f;Inserts per second=%f\n", secondsElapsed, (1000003 / secondsElapsed));
-
-        startNanos = System.nanoTime();
-
-        future = executorService.submit(() -> {
-            for (int i = 0; i < 1000; i++) {
-                String key = Integer.toString(i);
-
-                for (int j = 0; j < 1000; j++) {
-                    String value = Integer.toString(j * 2);
-                    database.put(key, value);
-                    assertEquals(value, database.get(key).orElse(NOT_FOUND));
-                }
-            }
-            return true;
-        });
-
-        waitForFuture(future);
-
-        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
-
-        System.out.printf("Thousand Key Insert Count = 1M; Seconds elapsed=%f; Inserts per second=%f\n", secondsElapsed, (1000000 / secondsElapsed));
-
-        startNanos = System.nanoTime();
-
-        future = executorService.submit(() -> {
-            for (int i = 0; i < 100000; i++) {
-                String key = Integer.toString(i);
-
-                for (int j = 0; j < 10; j++) {
-                    String value = Integer.toString(j * 2);
-                    database.put(key, value);
-                    assertEquals(value, database.get(key).orElse(NOT_FOUND));
-                }
-            }
-            return true;
-        });
-
-        waitForFuture(future);
-
-        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
-
-        System.out.printf("Hundred Thousand Key Insert Count = 1M; Seconds elapsed=%f; Inserts per second=%f\n", secondsElapsed, (1000000d / secondsElapsed));
-
-        startNanos = System.nanoTime();
-
-        future = executorService.submit(() -> {
-            ArrayList<String> rangeOfValues = database.range("10000", "11000");
-            for (String value : rangeOfValues) {
-                assertEquals("18", value);
-            }
-            return true;
-        });
-
-        waitForFuture(future);
-
-        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
-
-        System.out.printf("Range Query Count = 1000; Seconds elapsed=%f; Reads per second=%f\n", secondsElapsed, (1000d / secondsElapsed));
-
-        startNanos = System.nanoTime();
-
-        future = executorService.submit(() -> {
-            Iterator<java.util.Map.Entry<String, Long>> iterator = database.iterator();
-
-            while (iterator.hasNext()) {
-                java.util.Map.Entry<String, Long> entry = iterator.next();
-                assertEquals("18", database.get(entry.getKey()).orElse(NOT_FOUND));
-            }
-
-            return true;
-        });
-
-        waitForFuture(future);
-
-        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
-
-        System.out.printf("Iterate Count = ~100k; Seconds elapsed=%f; Reads per second=%f\n", secondsElapsed, (100000d / secondsElapsed));
+        System.out.printf("Single Key Insert Count = ~1M;Seconds elapsed=%f;Inserts per second=%f\n", secondsElapsed, (ONE_MILLION / secondsElapsed));
+//
+//        startNanos = System.nanoTime();
+//
+//        for (int i = 0; i < 1000; i++) {
+//            String key = Integer.toString(i);
+//
+//            for (int j = 0; j < 1000; j++) {
+//                String value = Integer.toString(j * 2);
+//                database.put(key, value);
+//            }
+//        }
+//
+//        block(database, 2000000);
+//
+//        secondsElapsed = (double)(System.nanoTime() - startNanos) / ONE_BILLION;
+//
+//        System.out.printf("Thousand Key Insert Count = 1M; Seconds elapsed=%f; Inserts per second=%f\n", secondsElapsed, (ONE_MILLION / secondsElapsed));
+//
+//
+//        startNanos = System.nanoTime();
+//
+//        for (int i = 0; i < 100000; i++) {
+//            String key = Integer.toString(i);
+//
+//            for (int j = 0; j < 10; j++) {
+//                String value = Integer.toString(j * 2);
+//                database.put(key, value);
+//            }
+//        }
+//
+//        block(database, 3000000);
+//
+//        secondsElapsed = (double)(System.nanoTime() - startNanos) / ONE_BILLION;
+//
+//        System.out.printf("Hundred Thousand Key Insert Count = 1M; Seconds elapsed=%f; Inserts per second=%f\n", secondsElapsed, (ONE_MILLION / secondsElapsed));
+//
+//        startNanos = System.nanoTime();
+//
+//        ArrayList<String> rangeOfValues = database.range("10000", "11000");
+//
+//        for (String value : rangeOfValues) {
+//            assertEquals("18", value);
+//        }
+//
+//        secondsElapsed = (double)(System.nanoTime() - startNanos) / ONE_BILLION;
+//
+//        System.out.printf("Range Query Count = 1000; Seconds elapsed=%f; Reads per second=%f\n", secondsElapsed, (1000d / secondsElapsed));
+//
+//        startNanos = System.nanoTime();
+//
+//        Iterator<java.util.Map.Entry<String, Long>> iterator = database.iterator();
+//
+//        while (iterator.hasNext()) {
+//            java.util.Map.Entry<String, Long> entry = iterator.next();
+//            assertEquals("18", database.get(entry.getKey()).orElse(NOT_FOUND));
+//        }
+//
+//        secondsElapsed = (double)(System.nanoTime() - startNanos) / ONE_BILLION;
+//
+//        System.out.printf("Iterate Count = ~100k; Seconds elapsed=%f; Reads per second=%f\n", secondsElapsed, (100000d / secondsElapsed));
     }
 
+    @Ignore
     @Test
     public void databaseCompactTimeTest() {
-        Storage storage = new StorageImpl("/tmp/db");
+        Storage storage = new StorageImpl("/tmp/db2");
         Index index = new IndexImpl();
-        Database database = new DatabaseImpl(index, storage, Level.INFO, new NoOpCompactionStrategy());
+        Database database = new DatabaseImpl(index, storage, Level.INFO, new NoOpCompactionStrategy(), 15);
+
         long startNanos = System.nanoTime();
 
-        ExecutorService executorService = Executors.newFixedThreadPool(16); /* Set equal to log. proc. count */
+        for (int i = 0; i < 100000; i++) {
+            String key = Integer.toString(i);
 
-        startNanos = System.nanoTime();
-
-        Future<Boolean> future = executorService.submit(() -> {
-            for (int i = 0; i < 100000; i++) {
-                String key = Integer.toString(i);
-
-                for (int j = 0; j < 10; j++) {
-                    String value = Integer.toString(j * 2);
-                    database.put(key, value);
-                    assertEquals(value, database.get(key).orElse(NOT_FOUND));
-                }
+            for (int j = 0; j < 10; j++) {
+                String value = Integer.toString(j * 2);
+                database.put(key, value);
             }
-            return true;
-        });
+        }
 
-        waitForFuture(future);
+//        block(database, Long.MIN_VALUE + 1000000);
 
-        double secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
+        double secondsElapsed = (double)(System.nanoTime() - startNanos) / ONE_BILLION;
 
-        System.out.printf("Hundred Thousand Key Insert Count = 1M; Seconds elapsed=%f; Inserts per second=%f\n", secondsElapsed, (1000000d / secondsElapsed));
+        System.out.printf("Hundred Thousand Key Insert Count = 1M; Seconds elapsed=%f; Inserts per second=%f\n", secondsElapsed, (ONE_MILLION / secondsElapsed));
 
         startNanos = System.nanoTime();
 
-        future = executorService.submit(() -> {
-            database.compact();
-            return true;
-        });
+        database.compact();
 
-        waitForFuture(future);
-
-        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
+        secondsElapsed = (double)(System.nanoTime() - startNanos) / ONE_BILLION;
 
         System.out.printf("Compaction time=%f\n", secondsElapsed);
     }
 
-    private void waitForFuture(Future<Boolean> future) {
-        while(!future.isDone()) {
-            try {
-                Thread.sleep(100);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+    private boolean block(long insertCount, long target) {
+        if (insertCount < target) {
+            return true;
         }
+        return false;
     }
 }

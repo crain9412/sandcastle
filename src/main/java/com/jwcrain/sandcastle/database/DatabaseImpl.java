@@ -1,5 +1,4 @@
 package com.jwcrain.sandcastle.database;
-
 import com.jwcrain.sandcastle.database.compactionstrategy.CompactionStrategy;
 import com.jwcrain.sandcastle.database.error.Error;
 import com.jwcrain.sandcastle.database.index.Index;
@@ -11,90 +10,93 @@ import org.apache.log4j.Logger;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.*;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.*;
+
+import static com.jwcrain.sandcastle.database.concurrency.Helper.waitForFuture;
 
 public class DatabaseImpl implements Database {
     private static final char DELIMITER = '=';
     private static final char END_OF_LINE = '\n';
     private static final char EMPTY_VALUE = ' ';
+    private static final int ID_INDEX = 1;
+    private static final int HASH_INDEX = 2;
+    private static final int KEY_INDEX = 3;
+    private static final int VALUE_INDEX = 4;
     private Index index;
     private Storage storage;
-    private ReentrantLock lock = new ReentrantLock();
     private Logger logger = Logger.getLogger(DatabaseImpl.class);
     private CompactionStrategy compactionStrategy;
-    private long insertCount = 0L;
+    private long insertId = Long.MIN_VALUE; /* Monotonically increasing */
+    private ExecutorService writeExecutorService = Executors.newSingleThreadExecutor();
+    private ExecutorService readExecutorService;
 
-
-    public DatabaseImpl(Index index, Storage storage, Level logLevel, CompactionStrategy compactionStrategy) {
+    /* TODO: use builder pattern */
+    public DatabaseImpl(Index index, Storage storage, Level logLevel, CompactionStrategy compactionStrategy, int readThreads
+    ) {
         this.index = index;
         this.storage = storage;
         this.compactionStrategy = compactionStrategy;
         logger.setLevel(logLevel);
         logger.info("Starting database");
-        compact();
+        this.readExecutorService = Executors.newFixedThreadPool(readThreads);
+        writeExecutorService.submit(this::compact);
     }
 
     @Override
     public void put(String key, String value) {
-        putHelper(key, value, false);
+        writeExecutorService.submit(() -> putHelper(key, value, false));
     }
 
-    private void putHelper(String key, String value, boolean alreadyCompacted) {
-        while (!lock.tryLock()) {
-            lock.tryLock();
-        }
-
-        logger.trace("Locked database for writing");
-
-        insertCount++;
+    private String putHelper(String key, String value, boolean alreadyCompacted) {
+        insertId++;
 
         try {
             int hash = MurmurHash3.hash32x86((key + value).getBytes());
-            byte[] log = getLogForKeyValue(hash, key, value);
+            byte[] log = getLogForKeyValue(insertId, hash, key, value);
             Optional<Long> offsetOptional = storage.persist(log);
 
             if (offsetOptional.isPresent()) {
                 index.put(key, offsetOptional.get());
                 logger.trace("Wrote " + key + "=" + value);
             } else {
-                logger.warn(String.format("Couldn't persist %s=%s=%s", hash, key, value));
+                logger.warn(String.format("Couldn't persist %s=%s=%s=%s", insertId, hash, key, value));
+                return null;
             }
         } finally {
-            lock.unlock();
             logger.trace("Unlocked database for writing");
         }
 
-        if (compactionStrategy.shouldCompact(insertCount) && !alreadyCompacted) {
-            compact();
+        if (compactionStrategy.shouldCompact(insertId) && !alreadyCompacted) {
+            compactHelper();
         }
+
+        return value;
     }
 
     @Override
     public Optional<String> get(String key) {
-        while (!lock.tryLock()) {
-            lock.tryLock();
-        }
-
-        logger.trace("Locked database for reading");
-
         try {
-            Optional<Long> offset = index.get(key);
+            return readExecutorService.submit(() -> getHelper(key)).get();
+        } catch (Exception e) {
+            Error.handle("Error while executing read", e);
+        }
+        return Optional.empty();
+    }
 
-            /* TODO: Don't like the pattern below */
-            if (offset.isPresent()) {
-                Optional<byte[]> bytesOptional = storage.retrieve(offset.get());
+    private Optional<String> getHelper(String key) {
+        Optional<Long> offset = index.get(key);
 
-                if (bytesOptional.isPresent()) {
-                    return Optional.of(bytesToString(bytesOptional.get()));
-                } else {
-                    logger.warn("Couldn't retrieve bytes at offset");
-                }
+        /* TODO: Don't like the pattern below */
+        if (offset.isPresent()) {
+            Optional<byte[]> bytesOptional = storage.retrieve(offset.get());
+
+            if (bytesOptional.isPresent()) {
+                return Optional.of(bytesToString(bytesOptional.get()));
             } else {
-                logger.warn(String.format("Couldn't find key %s in index", key)); /* TODO: make nicer */
+                logger.warn("Couldn't retrieve bytes at offset");
             }
-        } finally {
-            lock.unlock();
-            logger.trace("Unlocked database for reading");
+        } else {
+            logger.warn(String.format("Couldn't find key %s in index", key)); /* TODO: make nicer */
         }
 
         return Optional.empty();
@@ -107,6 +109,12 @@ public class DatabaseImpl implements Database {
 
     @Override
     public ArrayList<String> range(String from, String to) {
+        Future<ArrayList<String>> future = readExecutorService.submit(() -> rangeHelper(from, to));
+
+        return waitForFuture(future);
+    }
+
+    private ArrayList<String> rangeHelper(String from, String to) {
         ArrayList<Long> offsets = index.range(from, to);
         ArrayList<String> values = new ArrayList<>();
 
@@ -123,25 +131,36 @@ public class DatabaseImpl implements Database {
         return index.entrySet().iterator();
     }
 
+    private long extractId(String string) {
+        String[] strings = string.split(String.valueOf(DELIMITER));
+        return Integer.parseInt(strings[ID_INDEX]);
+    }
+
     private int extractHash(String string) {
         String[] strings = string.split(String.valueOf(DELIMITER));
-        return Integer.parseInt(strings[1]);
+        return Integer.parseInt(strings[HASH_INDEX]);
     }
 
     private String extractKey(String string) {
         /* TODO: partial writes could end with corruption */
         String[] strings = string.split(String.valueOf(DELIMITER));
-        return strings[2].trim();
+        return strings[KEY_INDEX].trim();
     }
 
     private String extractValue(String string) {
         String[] strings = string.split(String.valueOf(DELIMITER));
-        return strings[3].trim();
+        return strings[VALUE_INDEX].trim();
     }
 
-    private byte[] getLogForKeyValue(int hash, String key, String value) {
+    private byte[] getLogForKeyValue(long insertCount, int hash, String key, String value) {
         StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append(DELIMITER).append(hash).append(DELIMITER).append(key).append(DELIMITER).append(value).append(END_OF_LINE);
+
+        stringBuilder.append(DELIMITER)
+                .append(insertCount).append(DELIMITER)
+                .append(hash).append(DELIMITER)
+                .append(key).append(DELIMITER)
+                .append(value).append(END_OF_LINE);
+
         return stringBuilder.toString().getBytes();
     }
 
@@ -156,14 +175,17 @@ public class DatabaseImpl implements Database {
     }
 
     @Override
-    public void compact() {
-        logger.trace("Index before compaction " + index.entrySet().toString());
-
-        while (!lock.tryLock()) {
-            lock.tryLock();
+    public boolean compact() {
+        try {
+            return writeExecutorService.submit(this::compactHelper).get();
+        } catch (Exception e) {
+            Error.handle("Exception occurred while compacting", e);
         }
+        return false;
+    }
 
-        logger.debug("Locked database for compaction");
+    private boolean compactHelper() {
+        logger.trace("Index before compaction " + index.entrySet().toString());
 
         index.reset();
 
@@ -200,10 +222,16 @@ public class DatabaseImpl implements Database {
 
         } catch (Exception e) {
             Error.handle("Error occurred while compacting", e);
+            return false;
         } finally {
-            lock.unlock();
-            logger.debug("Unlocked database for compaction");
             logger.trace("Index after compaction " + index.entrySet().toString());
         }
+
+        return true;
+    }
+
+    @Override
+    public long getInsertId() {
+        return insertId;
     }
 }
