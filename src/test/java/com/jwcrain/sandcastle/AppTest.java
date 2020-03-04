@@ -5,11 +5,13 @@ import com.jwcrain.sandcastle.crainhashmap.Map;
 import com.jwcrain.sandcastle.crainlsmtree.LSMTreeImpl;
 import com.jwcrain.sandcastle.database.Database;
 import com.jwcrain.sandcastle.database.DatabaseImpl;
+import com.jwcrain.sandcastle.database.compactionstrategy.CompactionStrategy;
 import com.jwcrain.sandcastle.database.compactionstrategy.NoOpCompactionStrategy;
 import com.jwcrain.sandcastle.database.compactionstrategy.RandomizedCompactionStrategy;
 import com.jwcrain.sandcastle.database.index.Index;
 import com.jwcrain.sandcastle.database.index.IndexImpl;
 import com.jwcrain.sandcastle.database.storage.Storage;
+import com.jwcrain.sandcastle.database.transaction.TransactionImpl;
 import com.jwcrain.sandcastle.hashring.HashRingImpl;
 import com.jwcrain.sandcastle.database.storage.StorageImpl;
 import org.apache.log4j.Level;
@@ -253,177 +255,33 @@ public class AppTest {
     public void databaseTest() {
         Storage storage = new StorageImpl("/tmp/db");
         Index index = new IndexImpl();
-        Database database = new DatabaseImpl(index, storage, Level.INFO, new RandomizedCompactionStrategy());
+        TransactionImpl transaction = new TransactionImpl(index);
+        CompactionStrategy compactionStrategy = new RandomizedCompactionStrategy();
+        Database database = new DatabaseImpl(index, storage, Level.INFO, compactionStrategy, transaction);
 
-        ExecutorService executorService = Executors.newFixedThreadPool(4);
+        database.put("Hello", "World");
+        assertEquals("World", database.get("Hello").orElse(NOT_FOUND));
+        database.remove("Hello");
+        assertEquals("", database.get("Hello").orElse(NOT_FOUND));
+        database.put("Hello", "Jon");
+        assertEquals("Jon", database.get("Hello").orElse(NOT_FOUND));
 
-        Future<Boolean> future = executorService.submit(() -> {
-            database.put("Hello", "World");
-            assertEquals("World", database.get("Hello").orElse(NOT_FOUND));
-            database.remove("Hello");
-            assertEquals("", database.get("Hello").orElse(NOT_FOUND));
-            database.put("Hello", "Jon");
-            assertEquals("Jon", database.get("Hello").orElse(NOT_FOUND));
-            return true;
-        });
+        database.put("Jon's Balance", "100");
+        database.put("Bill's Balance", "100");
 
-        waitForFuture(future);
-    }
+        ArrayList<String> txnKeys = new ArrayList<>();
+        txnKeys.add("Jon's Balance");
+        txnKeys.add("Bill's Balance");
 
-    @Ignore
-    @Test
-    public void databaseLoadTest() {
-        Storage storage = new StorageImpl("/tmp/db");
-        Index index = new IndexImpl();
-        Database database = new DatabaseImpl(index, storage, Level.INFO, new RandomizedCompactionStrategy());
-        long startNanos = System.nanoTime();
+        Optional<Long> txnId = database.beginTransaction(txnKeys);
 
-        ExecutorService executorService = Executors.newFixedThreadPool(16); /* Set equal to log. proc. count */
-
-        Future<Boolean> future = executorService.submit(() -> {
-            for (int i = 0; i < 250000; i++) {
-                String s = Integer.toString(i);
-                database.put("Hello", s);
-                assertEquals(s, database.get("Hello").orElse(NOT_FOUND));
-            }
-            return true;
-        });
-
-        waitForFuture(future);
-
-        double secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
-
-        System.out.printf("Single Key Insert Count = 1,000,003;Seconds elapsed=%f;Inserts per second=%f\n", secondsElapsed, (1000003 / secondsElapsed));
-
-        startNanos = System.nanoTime();
-
-        future = executorService.submit(() -> {
-            for (int i = 0; i < 1000; i++) {
-                String key = Integer.toString(i);
-
-                for (int j = 0; j < 1000; j++) {
-                    String value = Integer.toString(j * 2);
-                    database.put(key, value);
-                    assertEquals(value, database.get(key).orElse(NOT_FOUND));
-                }
-            }
-            return true;
-        });
-
-        waitForFuture(future);
-
-        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
-
-        System.out.printf("Thousand Key Insert Count = 1M; Seconds elapsed=%f; Inserts per second=%f\n", secondsElapsed, (1000000 / secondsElapsed));
-
-        startNanos = System.nanoTime();
-
-        future = executorService.submit(() -> {
-            for (int i = 0; i < 100000; i++) {
-                String key = Integer.toString(i);
-
-                for (int j = 0; j < 10; j++) {
-                    String value = Integer.toString(j * 2);
-                    database.put(key, value);
-                    assertEquals(value, database.get(key).orElse(NOT_FOUND));
-                }
-            }
-            return true;
-        });
-
-        waitForFuture(future);
-
-        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
-
-        System.out.printf("Hundred Thousand Key Insert Count = 1M; Seconds elapsed=%f; Inserts per second=%f\n", secondsElapsed, (1000000d / secondsElapsed));
-
-        startNanos = System.nanoTime();
-
-        future = executorService.submit(() -> {
-            ArrayList<String> rangeOfValues = database.range("10000", "11000");
-            for (String value : rangeOfValues) {
-                assertEquals("18", value);
-            }
-            return true;
-        });
-
-        waitForFuture(future);
-
-        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
-
-        System.out.printf("Range Query Count = 1000; Seconds elapsed=%f; Reads per second=%f\n", secondsElapsed, (1000d / secondsElapsed));
-
-        startNanos = System.nanoTime();
-
-        future = executorService.submit(() -> {
-            Iterator<java.util.Map.Entry<String, Long>> iterator = database.iterator();
-
-            while (iterator.hasNext()) {
-                java.util.Map.Entry<String, Long> entry = iterator.next();
-                assertEquals("18", database.get(entry.getKey()).orElse(NOT_FOUND));
-            }
-
-            return true;
-        });
-
-        waitForFuture(future);
-
-        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
-
-        System.out.printf("Iterate Count = ~100k; Seconds elapsed=%f; Reads per second=%f\n", secondsElapsed, (100000d / secondsElapsed));
-    }
-
-    @Test
-    public void databaseCompactTimeTest() {
-        Storage storage = new StorageImpl("/tmp/db");
-        Index index = new IndexImpl();
-        Database database = new DatabaseImpl(index, storage, Level.INFO, new NoOpCompactionStrategy());
-        long startNanos = System.nanoTime();
-
-        ExecutorService executorService = Executors.newFixedThreadPool(16); /* Set equal to log. proc. count */
-
-        startNanos = System.nanoTime();
-
-        Future<Boolean> future = executorService.submit(() -> {
-            for (int i = 0; i < 100000; i++) {
-                String key = Integer.toString(i);
-
-                for (int j = 0; j < 10; j++) {
-                    String value = Integer.toString(j * 2);
-                    database.put(key, value);
-                    assertEquals(value, database.get(key).orElse(NOT_FOUND));
-                }
-            }
-            return true;
-        });
-
-        waitForFuture(future);
-
-        double secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
-
-        System.out.printf("Hundred Thousand Key Insert Count = 1M; Seconds elapsed=%f; Inserts per second=%f\n", secondsElapsed, (1000000d / secondsElapsed));
-
-        startNanos = System.nanoTime();
-
-        future = executorService.submit(() -> {
-            database.compact();
-            return true;
-        });
-
-        waitForFuture(future);
-
-        secondsElapsed = (double)(System.nanoTime() - startNanos) / 1000000000d;
-
-        System.out.printf("Compaction time=%f\n", secondsElapsed);
-    }
-
-    private void waitForFuture(Future<Boolean> future) {
-        while(!future.isDone()) {
-            try {
-                Thread.sleep(100);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        while (!txnId.isPresent()) {
+            txnId = database.beginTransaction(txnKeys);
         }
+
+        database.put("Jon's Balance", "150");
+        database.put("Bill's Balance", "50");
+
+        database.endTransaction(txnId.get());
     }
 }
