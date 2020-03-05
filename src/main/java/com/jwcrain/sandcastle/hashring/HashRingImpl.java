@@ -44,9 +44,9 @@ public class HashRingImpl<K> implements HashRing<K> {
     @Override
     public Optional<K> clockwise(double degree) {
         double nextPossibleDouble = Math.nextUp(degree);
-        Map.Entry<Double, K> potentialMatch = degreeToKeyTree.ceilingEntry(nextPossibleDouble);
+        Map.Entry<Double, K> potentialMatch = degreeToKeyTree.higherEntry(nextPossibleDouble);
         if (potentialMatch == null) {
-            potentialMatch = degreeToKeyTree.ceilingEntry(degree - DEGREES_IN_A_CIRCLE);
+            potentialMatch = degreeToKeyTree.higherEntry(degree - DEGREES_IN_A_CIRCLE);
         }
         return Optional.ofNullable(potentialMatch.getValue());
     }
