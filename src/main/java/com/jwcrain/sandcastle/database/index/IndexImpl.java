@@ -1,20 +1,60 @@
 package com.jwcrain.sandcastle.database.index;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class IndexImpl implements Index {
-    private HashMap<String, Long> hashMap = new HashMap<>();
-    private TreeMap<String, Long> treeMap = new TreeMap<>();
+    private HashMap<String, IndexValue> hashMap = new HashMap<>();
+    private TreeMap<String, IndexValue> treeMap = new TreeMap<>();
 
     @Override
     public void put(String key, long offset) {
-        hashMap.put(key, offset);
-        treeMap.put(key, offset);
+        hashMap.put(key, new IndexValue(offset));
+        treeMap.put(key, new IndexValue(offset));
     }
 
     @Override
-    public Optional<Long> get(String key) {
+    public Optional<IndexValue> get(String key) {
         return Optional.ofNullable(hashMap.get(key));
+    }
+
+    @Override
+    public boolean lock(String key) {
+        Optional<IndexValue> indexValueOptional = get(key);
+
+        if (!indexValueOptional.isPresent()) {
+            return false;
+        }
+
+        IndexValue indexValue = indexValueOptional.get();
+
+        ReentrantLock lock = indexValue.getLock();
+
+        try {
+            lock.tryLock(1, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public boolean unlock(String key) {
+        Optional<IndexValue> indexValueOptional = get(key);
+
+        if (!indexValueOptional.isPresent()) {
+            return false;
+        }
+
+        IndexValue indexValue = indexValueOptional.get();
+
+        ReentrantLock lock = indexValue.getLock();
+
+        lock.unlock();
+
+        return true;
     }
 
     @Override
@@ -29,9 +69,9 @@ public class IndexImpl implements Index {
     }
 
     @Override
-    public ArrayList<Long> range(String from, String to) {
-        ArrayList<Long> keys = new ArrayList<>();
-        Map.Entry<String, Long> currentEntry = treeMap.higherEntry(from);
+    public ArrayList<IndexValue> range(String from, String to) {
+        ArrayList<IndexValue> values = new ArrayList<>();
+        Map.Entry<String, IndexValue> currentEntry = treeMap.higherEntry(from);
 
         while (currentEntry != null) {
             String key = currentEntry.getKey();
@@ -39,15 +79,15 @@ public class IndexImpl implements Index {
             if (key.compareTo(to) >= 0) {
                 break;
             }
-            keys.add(currentEntry.getValue());
+            values.add(currentEntry.getValue());
             currentEntry = treeMap.higherEntry(key);
         }
 
-        return keys;
+        return values;
     }
 
     @Override
-    public Set<Map.Entry<String, Long>> entrySet() {
+    public Set<Map.Entry<String, IndexValue>> entrySet() {
         return treeMap.entrySet();
     }
 
