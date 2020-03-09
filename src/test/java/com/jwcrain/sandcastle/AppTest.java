@@ -14,15 +14,13 @@ import com.jwcrain.sandcastle.database.storage.Storage;
 import com.jwcrain.sandcastle.database.transaction.TransactionImpl;
 import com.jwcrain.sandcastle.hashring.HashRingImpl;
 import com.jwcrain.sandcastle.database.storage.StorageImpl;
+import com.jwcrain.sandcastle.huffmancoding.HuffmanCoding;
 import org.apache.log4j.Level;
 import org.junit.Ignore;
 import org.junit.Test;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -283,5 +281,17 @@ public class AppTest {
         database.put("Bill's Balance", "50");
 
         database.endTransaction(txnId.get());
+    }
+
+    @Test
+    public void testCharacterWeighter() {
+        String testString = "aaaabbcd";
+
+        HashMap<Character, Float> weights = HuffmanCoding.getCharacterWeights(testString);
+
+        assertEquals(.5f, weights.get('a'), 0.0001f);
+        assertEquals(.25f, weights.get('b'), 0.0001f);
+        assertEquals(.125f, weights.get('c'), 0.0001f);
+        assertEquals(.125f, weights.get('d'), 0.0001f);
     }
 }
