@@ -294,4 +294,11 @@ public class AppTest {
         assertEquals(.125f, weights.get('c'), 0.0001f);
         assertEquals(.125f, weights.get('d'), 0.0001f);
     }
+
+    @Test
+    public void testHuffmanCodingEncode() {
+        String testString = "aaaabbcd";
+
+        System.out.printf("HuffmanEncodedBytes: %s\n", Arrays.toString(HuffmanCoding.encode(testString)));
+    }
 }
